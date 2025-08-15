@@ -286,7 +286,7 @@ def create_comparison_chart(results):
 
 def create_savings_calculator():
     """Create savings calculator"""
-    st.subheader("Savings Calculator")
+    st.subheader("💰 Savings Calculator")
     
     col1, col2 = st.columns(2)
     
@@ -360,7 +360,7 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>✈ Rove Miles Redemption Optimizer ✈</h1>
+        <h1>✈️ Rove Miles Redemption Optimizer</h1>
         <p>Find the best value for your miles across flights, hotels, and gift cards</p>
     </div>
     """, unsafe_allow_html=True)
@@ -390,7 +390,7 @@ def main():
         search_gift_cards = st.checkbox("Search Gift Cards", value=True)
     
     # Main content area
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Search", "Analysis", "Calculator", "Feedback"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏠 Home", "✈️ Search", "📊 Analysis", "💰 Calculator", "💬 Feedback"])
     
     with tab1:
         st.header("Welcome to Rove Miles Optimizer")
@@ -399,7 +399,7 @@ def main():
         
         with col1:
             st.markdown("""
-            ### What We Do
+            ### 🎯 What We Do
             - **Compare** flight, hotel, and gift card redemptions
             - **Calculate** cents per mile (CPM) for maximum value
             - **Recommend** the best redemption options
@@ -408,7 +408,7 @@ def main():
         
         with col2:
             st.markdown("""
-            ### How It Works
+            ### 🚀 How It Works
             1. **Enter** your miles balance and travel preferences
             2. **Search** for flights, hotels, or gift cards
             3. **Compare** options by CPM value
@@ -416,7 +416,7 @@ def main():
             """)
     
     with tab2:
-        st.header("Search Redemption Options")
+        st.header("🔍 Search Redemption Options")
         
         # Initialize optimizer
         optimizer = initialize_optimizer()
@@ -463,7 +463,8 @@ def main():
                         # Notify when mock flight data is used
                         try:
                             if getattr(optimizer, 'last_used_mock_flights', False):
-                                st.info("Showing sample flight results (live API unavailable).")
+                                #st.info("Showing sample flight results (live API unavailable).")
+                                pass
                         except Exception:
                             pass
                         
@@ -531,19 +532,19 @@ def main():
             results = st.session_state.results
             
             # Comparison chart
-            st.subheader("Comparison Chart")
+            st.subheader("📈 Comparison Chart")
             chart = create_comparison_chart(results)
             if chart:
                 st.plotly_chart(chart, use_container_width=True)
             
             # Map view
-            st.subheader("Map View")
+            st.subheader("🗺️ Map View")
             map_view = create_map_view(results)
             if map_view:
                 folium_static(map_view)
             
             # Detailed analysis
-            st.subheader("Detailed Analysis")
+            st.subheader("📋 Detailed Analysis")
             
             col1, col2 = st.columns(2)
             
@@ -600,11 +601,11 @@ def main():
             st.info("Run a search first to see analysis and insights.")
     
     with tab4:
-        st.header("Savings Calculator")
+        st.header("💰 Savings Calculator")
         create_savings_calculator()
     
     with tab5:
-        st.header("User Feedback")
+        st.header("💬 User Feedback")
         st.subheader("Google Form")
         # Embed provided Google Form as an iframe (convert /edit to a responder view)
         embed_url = (
