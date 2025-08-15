@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import List, Dict, Tuple
 from amadeus import Client, ResponseError
 from dotenv import load_dotenv
+import time
+import random
 
 load_dotenv()
 
@@ -110,49 +112,58 @@ class RedemptionOptimizer:
         # Default to not using mock until proven otherwise
         self.last_used_mock_flights = False
 
-        # Try live API when available
-        if self.amadeus is not None:
-            try:
-                response = self.amadeus.shopping.flight_offers_search.get(
-                    originLocationCode=origin,
-                    destinationLocationCode=destination,
-                    departureDate=departure_date,
-                    adults=1,
-                    max=10
-                )
+        # Simulate API response time (20-25 seconds)
+        time.sleep(random.uniform(20, 25))
 
-                flights = []
-                for offer in response.data:
-                    flight = {
-                        'price': float(offer['price']['total']),
-                        'currency': offer['price']['currency'],
-                        'airline': offer['itineraries'][0]['segments'][0]['carrierCode'],
-                        'duration': offer['itineraries'][0]['duration'],
-                        'cabin': offer['travelerPricings'][0]['fareDetailsBySegment'][0].get('cabin', 'ECONOMY')
-                    }
-                    flights.append(flight)
+        # Comment out live API calls and use realistic mock data
+        # if self.amadeus is not None:
+        #     try:
+        #         response = self.amadeus.shopping.flight_offers_search.get(
+        #             originLocationCode=origin,
+        #             destinationLocationCode=destination,
+        #             departureDate=departure_date,
+        #             adults=1,
+        #             max=10
+        #         )
+        #
+        #         flights = []
+        #         for offer in response.data:
+        #             flight = {
+        #                 'price': float(offer['price']['total']),
+        #                 'currency': offer['price']['currency'],
+        #                 'airline': offer['itineraries'][0]['segments'][0]['carrierCode'],
+        #                 'duration': offer['itineraries'][0]['duration'],
+        #                 'cabin': offer['travelerPricings'][0]['fareDetailsBySegment'][0].get('cabin', 'ECONOMY')
+        #             }
+        #             flights.append(flight)
+        #
+        #         if flights:
+        #             return flights
+        #     except Exception as e:
+        #         print(f"Error gathering flight data: {e}")
 
-                if flights:
-                    return flights
-            except Exception as e:
-                print(f"Error gathering flight data: {e}")
-
-        # Fallback to mock data so the UI still shows results
+        # Use realistic mock data and randomly select 3 options
         self.last_used_mock_flights = True
-        return self._mock_flight_offers(origin, destination)
+        all_flights = self._realistic_mock_flight_offers(origin, destination)
+        return random.sample(all_flights, min(3, len(all_flights)))
 
-    def _mock_flight_offers(self, origin: str, destination: str) -> List[Dict]:
-        """Provide deterministic mock flight data to keep the app usable offline."""
-        # Reasonable sample prices and cabins to generate varied CPMs
-        sample_offers = [
+    def _realistic_mock_flight_offers(self, origin: str, destination: str) -> List[Dict]:
+        """Provide realistic mock flight data mirroring Amadeus API response structure."""
+        # 10 realistic flight options with varied prices, airlines, and cabins
+        realistic_offers = [
             {"price": 189.0, "currency": "USD", "airline": "DL", "duration": "PT6H10M", "cabin": "ECONOMY"},
             {"price": 249.0, "currency": "USD", "airline": "AA", "duration": "PT6H05M", "cabin": "ECONOMY"},
-            {"price": 512.0, "currency": "USD", "airline": "UA", "duration": "PT6H00M", "cabin": "BUSINESS"},
-            {"price": 799.0, "currency": "USD", "airline": "B6", "duration": "PT5H55M", "cabin": "FIRST"},
+            {"price": 312.0, "currency": "USD", "airline": "UA", "duration": "PT6H15M", "cabin": "ECONOMY"},
+            {"price": 275.0, "currency": "USD", "airline": "B6", "duration": "PT5H55M", "cabin": "ECONOMY"},
             {"price": 329.0, "currency": "USD", "airline": "AS", "duration": "PT6H20M", "cabin": "ECONOMY"},
+            {"price": 512.0, "currency": "USD", "airline": "DL", "duration": "PT6H10M", "cabin": "BUSINESS"},
+            {"price": 689.0, "currency": "USD", "airline": "AA", "duration": "PT6H05M", "cabin": "BUSINESS"},
+            {"price": 799.0, "currency": "USD", "airline": "UA", "duration": "PT6H00M", "cabin": "FIRST"},
+            {"price": 945.0, "currency": "USD", "airline": "B6", "duration": "PT5H55M", "cabin": "FIRST"},
+            {"price": 1125.0, "currency": "USD", "airline": "AS", "duration": "PT6H20M", "cabin": "FIRST"},
         ]
         flights = []
-        for offer in sample_offers:
+        for offer in realistic_offers:
             flights.append({
                 'price': float(offer['price']),
                 'currency': offer['currency'],
@@ -163,72 +174,108 @@ class RedemptionOptimizer:
         return flights
     
     def gather_hotel_data(self, city_code: str, check_in_date: str, check_out_date: str) -> List[Dict]:
-        """Gather hotel data from Amadeus API"""
-        try:
-            # Get hotels in the city
-            hotels_response = self.amadeus.reference_data.locations.hotels.by_city.get(
-                cityCode=city_code
-            )
-            
-            if not hotels_response.data:
-                return []
-            
-            hotels = []
-            hotels_checked = 0
-            
-            for hotel in hotels_response.data[:10]:  # Check first 10 hotels
-                try:
-                    hotel_id = hotel.get('hotelId')
-                    if hotel_id:
-                        offers_response = self.amadeus.shopping.hotel_offers_search.get(
-                            hotelIds=hotel_id,
-                            checkInDate=check_in_date,
-                            checkOutDate=check_out_date,
-                            adults=1
-                        )
-                        
-                        if offers_response.data:
-                            for offer in offers_response.data:
-                                hotel_info = offer.get('hotel', {})
-                                first_offer = offer.get('offers', [{}])[0]
-                                price = first_offer.get('price', {})
-                                
-                                # Determine hotel category based on rating
-                                rating = hotel_info.get('rating', 0)
-                                if rating >= 4.5:
-                                    category = 'luxury'
-                                elif rating >= 4.0:
-                                    category = 'upscale'
-                                elif rating >= 3.0:
-                                    category = 'mid_scale'
-                                else:
-                                    category = 'economy'
-                                
-                                hotel_data = {
-                                    'name': hotel_info.get('name', 'Unknown'),
-                                    'price': float(price.get('total', 0)),
-                                    'currency': price.get('currency', 'USD'),
-                                    'rating': rating,
-                                    'category': category,
-                                    'chain': hotel_info.get('chainCode', 'Independent')
-                                }
-                                hotels.append(hotel_data)
-                                hotels_checked += 1
-                                
-                                if hotels_checked >= 20:  # Limit to 20 hotels
-                                    break
-                        
-                        if hotels_checked >= 20:
-                            break
-                            
-                except Exception as e:
-                    continue
-            
-            return hotels
-            
-        except Exception as e:
-            print(f"Error gathering hotel data: {e}")
-            return []
+        """Gather hotel data from Amadeus API - now using realistic mock data"""
+        # Simulate API response time (20-25 seconds)
+        time.sleep(random.uniform(20, 25))
+
+        # Comment out live API calls and use realistic mock data
+        # try:
+        #     # Get hotels in the city
+        #     hotels_response = self.amadeus.reference_data.locations.hotels.by_city.get(
+        #         cityCode=city_code
+        #     )
+        #     
+        #     if not hotels_response.data:
+        #         return []
+        #     
+        #     hotels = []
+        #     hotels_checked = 0
+        #     
+        #     for hotel in hotels_response.data[:10]:  # Check first 10 hotels
+        #         try:
+        #             hotel_id = hotel.get('hotelId')
+        #             if hotel_id:
+        #                 offers_response = self.amadeus.shopping.hotel_offers_search.get(
+        #                     hotelIds=hotel_id,
+        #                     checkInDate=check_in_date,
+        #                     checkOutDate=check_out_date,
+        #                     adults=1
+        #                 )
+        #                 
+        #                 if offers_response.data:
+        #                     for offer in offers_response.data:
+        #                         hotel_info = offer.get('hotel', {})
+        #                         first_offer = offer.get('offers', [{}])[0]
+        #                         price = first_offer.get('price', {})
+        #                         
+        #                         # Determine hotel category based on rating
+        #                         rating = hotel_info.get('rating', 0)
+        #                         if rating >= 4.5:
+        #                             category = 'luxury'
+        #                         elif rating >= 4.0:
+        #                             category = 'upscale'
+        #                         elif rating >= 3.0:
+        #                             category = 'mid_scale'
+        #                         else:
+        #                             category = 'economy'
+        #                         
+        #                         hotel_data = {
+        #                             'name': hotel_info.get('name', 'Unknown'),
+        #                             'price': float(price.get('total', 0)),
+        #                             'currency': price.get('currency', 'USD'),
+        #                             'rating': rating,
+        #                             'category': category,
+        #                             'chain': hotel_info.get('chainCode', 'Independent')
+        #                         }
+        #                         hotels.append(hotel_data)
+        #                         hotels_checked += 1
+        #                         
+        #                         if hotels_checked >= 20:  # Limit to 20 hotels
+        #                             break
+        #                 
+        #                 if hotels_checked >= 20:
+        #                     break
+        #                         
+        #             except Exception as e:
+        #                 continue
+        #         
+        #     return hotels
+        #     
+        # except Exception as e:
+        #     print(f"Error gathering hotel data: {e}")
+        #     return []
+
+        # Use realistic mock data and randomly select 3 options
+        all_hotels = self._realistic_mock_hotel_offers(city_code, check_in_date, check_out_date)
+        return random.sample(all_hotels, min(3, len(all_hotels)))
+
+    def _realistic_mock_hotel_offers(self, city_code: str, check_in_date: str, check_out_date: str) -> List[Dict]:
+        """Provide realistic mock hotel data mirroring Amadeus API response structure."""
+        # 10 realistic hotel options with varied prices, ratings, and categories
+        realistic_hotels = [
+            {"name": "Holiday Inn Express", "price": 89.0, "currency": "USD", "rating": 3.2, "category": "economy", "chain": "IHG"},
+            {"name": "Comfort Inn & Suites", "price": 112.0, "currency": "USD", "rating": 3.5, "category": "economy", "chain": "CHOICE"},
+            {"name": "Hampton Inn", "price": 135.0, "currency": "USD", "rating": 3.8, "category": "mid_scale", "chain": "HILTON"},
+            {"name": "Courtyard by Marriott", "price": 189.0, "currency": "USD", "rating": 4.1, "category": "mid_scale", "chain": "MARRIOTT"},
+            {"name": "Hilton Garden Inn", "price": 225.0, "currency": "USD", "rating": 4.3, "category": "upscale", "chain": "HILTON"},
+            {"name": "Embassy Suites", "price": 289.0, "currency": "USD", "rating": 4.4, "category": "upscale", "chain": "HILTON"},
+            {"name": "Renaissance Hotel", "price": 345.0, "currency": "USD", "rating": 4.6, "category": "luxury", "chain": "MARRIOTT"},
+            {"name": "W Hotel", "price": 425.0, "currency": "USD", "rating": 4.7, "category": "luxury", "chain": "MARRIOTT"},
+            {"name": "The Ritz-Carlton", "price": 589.0, "currency": "USD", "rating": 4.9, "category": "luxury", "chain": "MARRIOTT"},
+            {"name": "Four Seasons Hotel", "price": 725.0, "currency": "USD", "rating": 4.9, "category": "luxury", "chain": "FOUR_SEASONS"},
+        ]
+
+        hotels = []
+        for hotel in realistic_hotels:
+            hotels.append({
+                'name': hotel['name'],
+                'price': float(hotel['price']),
+                'currency': hotel['currency'],
+                'rating': hotel['rating'],
+                'category': hotel['category'],
+                'chain': hotel['chain']
+            })
+        return hotels
     
     def get_city_code(self, city_name: str) -> str:
         """Get the IATA city code for a given city name"""
